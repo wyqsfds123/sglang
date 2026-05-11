@@ -276,21 +276,11 @@ class SchedulerBatchResultProcessor:
                         logprob_pt=logprob_pt,
                     )
 
-                    if (
-                        req.return_hidden_states
-                        and logits_output.hidden_states is not None
-                    ):
-                        req.hidden_states.append(
-                            logits_output.hidden_states[
-                                hidden_state_offset : (
-                                    hidden_state_offset := hidden_state_offset
-                                    + len(req.origin_input_ids)
-                                )
-                            ]
-                            .cpu()
-                            .clone()
-                            .tolist()
-                        )
+                    hidden_state_offset = self._append_prefill_hidden_states(
+                        req=req,
+                        logits_output=logits_output,
+                        hidden_state_offset=hidden_state_offset,
+                    )
 
                     self._apply_prefill_grammar(req=req, next_token_id=next_token_id)
 
@@ -415,6 +405,27 @@ class SchedulerBatchResultProcessor:
                 )
             logprob_pt += num_input_logprobs
         return logprob_pt
+
+    def _append_prefill_hidden_states(
+        self,
+        *,
+        req: Req,
+        logits_output: LogitsProcessorOutput,
+        hidden_state_offset: int,
+    ) -> int:
+        if req.return_hidden_states and logits_output.hidden_states is not None:
+            req.hidden_states.append(
+                logits_output.hidden_states[
+                    hidden_state_offset : (
+                        hidden_state_offset := hidden_state_offset
+                        + len(req.origin_input_ids)
+                    )
+                ]
+                .cpu()
+                .clone()
+                .tolist()
+            )
+        return hidden_state_offset
 
     def _apply_prefill_grammar(self, *, req: Req, next_token_id) -> None:
         if req.grammar is not None:
