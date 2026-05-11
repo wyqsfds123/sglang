@@ -14,19 +14,6 @@ from sglang.srt.observability.trace import extract_trace_headers
 
 @dataclasses.dataclass(slots=True)
 class ReqLogprobsState:
-    """Per-request logprob accumulators.
-
-    Pure data container. All logprob operations (accumulate from recv_obj,
-    fill meta_info, detokenize) live in ``logprob_ops.py`` as free
-    functions.
-
-    ``frozen=False`` (R5 exception): the lists are extended/appended
-    in-place across the request lifetime — there is no
-    "constructed-then-frozen" semantic. ``slots=True`` keeps attribute
-    misuse fail-fast.
-    """
-
-    # 6 raw val/idx pairs — scheduler's incremental logprob payload
     input_token_logprobs_val: List[float] = dataclasses.field(default_factory=list)
     input_token_logprobs_idx: List[int] = dataclasses.field(default_factory=list)
     output_token_logprobs_val: List[float] = dataclasses.field(default_factory=list)
@@ -40,7 +27,6 @@ class ReqLogprobsState:
     output_token_ids_logprobs_val: List = dataclasses.field(default_factory=list)
     output_token_ids_logprobs_idx: List = dataclasses.field(default_factory=list)
 
-    # 6 detokenized lists — (logprob, token_id, text) triples after detokenize
     input_token_logprobs: List[Any] = dataclasses.field(default_factory=list)
     output_token_logprobs: List[Any] = dataclasses.field(default_factory=list)
     input_top_logprobs: List[Any] = dataclasses.field(default_factory=list)
@@ -93,7 +79,6 @@ class ReqState:
     # TODO(lianmin): do not initialize some lists if not needed.
     output_ids: List[int] = dataclasses.field(default_factory=list)
 
-    # Logprob accumulators (raw val/idx + detokenized) live in their own dataclass.
     logprobs: ReqLogprobsState = dataclasses.field(default_factory=ReqLogprobsState)
 
 

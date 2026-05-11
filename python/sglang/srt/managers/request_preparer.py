@@ -40,13 +40,6 @@ class RequestPreparerConfig:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class _ResolvedInput:
-    """Phase-1 result of _tokenize_one_request: raw input source resolved.
-
-    Captures the post-resolution state of (input_ids, token_type_ids,
-    input_embeds, input_text) before the multimodal processor phase has
-    a chance to override input_ids / token_type_ids.
-    """
-
     input_ids: Optional[List[int]]
     token_type_ids: Optional[List[int]]
     input_embeds: Optional[Any]
@@ -87,12 +80,6 @@ class RequestPreparer:
         self,
         obj: Union[GenerateReqInput, EmbeddingReqInput],
     ) -> _ResolvedInput:
-        """Resolve raw input (embeds / ids / text) into the unified shape that
-        downstream MM processing + builder consume.
-
-        Side effect: may await ``raw_tokenizer_wrapper._tokenize_texts`` to
-        compute input_ids from text. No mutation of ``obj``.
-        """
         input_embeds = None
         input_text = obj.text
         token_type_ids = None
@@ -145,20 +132,6 @@ class RequestPreparer:
         obj: Union[GenerateReqInput, EmbeddingReqInput],
         resolved: _ResolvedInput,
     ) -> Tuple[Optional[Any], _ResolvedInput]:
-        """Run the multimodal processor if applicable.
-
-        Returns ``(mm_inputs, resolved)``. If MM should not run, returns
-        ``(None, resolved)`` unchanged. Otherwise returns the produced
-        mm_inputs plus a new _ResolvedInput with input_ids / token_type_ids
-        possibly overridden by mm_inputs.
-
-        Side effects:
-          - May normalize ``obj.image_data`` / ``obj.video_data`` /
-            ``obj.audio_data`` to lists (in-place mutation of ``obj``).
-          - May call ``request_validator._validate_mm_limits(obj)``.
-          - May call ``set_pad_value()`` on each mm item when
-            SGLANG_MM_PRECOMPUTE_HASH is enabled.
-        """
         contains_mm_input = obj.contains_mm_input()
         is_mossvl = "MossVLForConditionalGeneration" in self.config.architectures
         should_run_mm_processor = (
@@ -207,18 +180,6 @@ class RequestPreparer:
         input_text: Optional[str],
         input_ids: Optional[List[int]],
     ) -> Optional[Any]:
-        """Dispatch the 3 MM-processor invocation modes.
-
-        Mode A: ``not language_only`` OR ``encoder_transfer_backend in
-            {zmq_to_tokenizer, mooncake}`` — (language_only only) call
-            ``mm_receiver.recv_mm_data``, fall back to local
-            ``mm_processor.process_mm_data_async``.
-        Mode B: ``language_only && encoder_transfer_backend == zmq_to_scheduler
-            && !need_wait_for_mm_inputs`` — local
-            ``mm_processor.process_mm_data_async`` only.
-        Mode C (fallback): returns ``None`` — caller proceeds with
-            phase-1 input_ids / token_type_ids.
-        """
         if not self.config.language_only or self.config.encoder_transfer_backend in [
             "zmq_to_tokenizer",
             "mooncake",

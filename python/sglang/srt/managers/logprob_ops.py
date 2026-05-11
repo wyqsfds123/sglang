@@ -222,12 +222,6 @@ def _accumulate_logprobs_from_recv(
     top_logprobs_num: int,
     token_ids_logprob: Optional[List[int]],
 ) -> None:
-    """Extend state's logprob accumulators from this recv_obj chunk.
-
-    Caller must already have gated on
-    ``recv_obj.input_token_logprobs_val is not None`` — the unconditional
-    output extends below assume scheduler logprob payload is present.
-    """
     if (
         len(recv_obj.input_token_logprobs_val) > 0
         and recv_obj.input_token_logprobs_val[recv_obj_index] is not None
