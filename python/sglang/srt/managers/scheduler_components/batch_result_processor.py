@@ -1,7 +1,7 @@
 from __future__ import annotations  # noqa: F401
 
 import logging  # noqa: F401
-from typing import TYPE_CHECKING, List, Union  # noqa: F401
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union  # noqa: F401
 
 import torch  # noqa: F401
 
@@ -335,7 +335,7 @@ class SchedulerBatchResultProcessor:
             dp_cooperation_info=batch.dp_cooperation_info,
         )
 
-    def _convert_embeddings(self, *, result) -> list:
+    def _convert_embeddings(self, *, result: EmbeddingBatchResult) -> list:
         is_sparse = envs.SGLANG_EMBEDDINGS_SPARSE_HEAD.is_set()
 
         embeddings = result.embeddings
@@ -359,8 +359,8 @@ class SchedulerBatchResultProcessor:
         *,
         batch: ScheduleBatch,
         logits_output: LogitsProcessorOutput,
-        next_token_ids,
-    ) -> list:
+        next_token_ids: torch.Tensor,
+    ) -> List[int]:
         # Move next_token_ids and logprobs to cpu
         next_token_ids = next_token_ids.tolist()
         if batch.return_logprob:
@@ -392,9 +392,9 @@ class SchedulerBatchResultProcessor:
         i: int,
         batch: ScheduleBatch,
         logits_output: LogitsProcessorOutput,
-        extend_input_len_per_req,
-        extend_logprob_start_len_per_req,
-        next_token_ids,
+        extend_input_len_per_req: Optional[List[int]],
+        extend_logprob_start_len_per_req: Optional[List[int]],
+        next_token_ids: List[int],
         logprob_pt: int,
     ) -> int:
         if batch.return_logprob:
@@ -442,7 +442,7 @@ class SchedulerBatchResultProcessor:
             )
         return hidden_state_offset
 
-    def _apply_prefill_grammar(self, *, req: Req, next_token_id) -> None:
+    def _apply_prefill_grammar(self, *, req: Req, next_token_id: int) -> None:
         if req.grammar is not None:
             # FIXME: this try-except block is for handling unexpected xgrammar issue.
             try:
@@ -463,8 +463,8 @@ class SchedulerBatchResultProcessor:
         i: int,
         batch: ScheduleBatch,
         logits_output: LogitsProcessorOutput,
-        extend_input_len_per_req,
-        extend_logprob_start_len_per_req,
+        extend_input_len_per_req: Optional[List[int]],
+        extend_logprob_start_len_per_req: Optional[List[int]],
         logprob_pt: int,
     ) -> int:
         # Incrementally update input logprobs.
@@ -667,8 +667,8 @@ class SchedulerBatchResultProcessor:
         batch: ScheduleBatch,
         result: GenerationBatchResult,
         logits_output: LogitsProcessorOutput,
-        next_token_ids,
-    ):
+        next_token_ids: Union[torch.Tensor, List[int]],
+    ) -> Tuple[Union[List[int], List[List[int]]], Optional[List[float]]]:
         # In the spec-v1 path the verify phase already handled output_ids,
         # check_finished, grammar, and reasoning tokens (eagle_info.py /
         # ngram_info.py), so this normalizer no-ops and returns
@@ -705,8 +705,8 @@ class SchedulerBatchResultProcessor:
         req: Req,
         i: int,
         batch: ScheduleBatch,
-        next_token_id,
-        next_token_logprobs,
+        next_token_id: Union[int, List[int]],
+        next_token_logprobs: list,
         logits_output: LogitsProcessorOutput,
     ) -> None:
         # Spec v1 handles logprobs inside its own worker.
@@ -741,7 +741,11 @@ class SchedulerBatchResultProcessor:
                 )
 
     def _apply_decode_grammar(
-        self, *, req: Req, next_token_id, batch: ScheduleBatch
+        self,
+        *,
+        req: Req,
+        next_token_id: Union[int, List[int]],
+        batch: ScheduleBatch,
     ) -> None:
         if req.grammar is not None:
             # FIXME: this try-except block is for handling unexpected xgrammar issue.
